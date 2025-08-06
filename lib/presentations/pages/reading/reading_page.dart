@@ -4,99 +4,122 @@ import '../../controllers/reading/reading_controller.dart';
 import '../../controllers/book/book_controller.dart';
 import '../../widgets/reading/chapter_list_drawer.dart';
 import 'widgets/book_page_transition.dart';
+import 'widgets/coin_animation.dart';
 
 class ReadingPage extends GetView<ReadingController> {
   const ReadingPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: controller.key,
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: Obx(() => Text(
-              controller.currentBook.value?.title ?? 'Reading',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            )),
-        backgroundColor: Colors.black,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: controller.goBack,
-        ),
-        actions: [
-          // Coins display
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.amber[600],
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.monetization_on,
+    return Stack(
+      children: [
+        Scaffold(
+          key: controller.key,
+          backgroundColor: Colors.grey[100],
+          appBar: AppBar(
+            title: Obx(() => Text(
+                  controller.currentBook.value?.title ?? 'Reading',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    size: 16,
                   ),
-                  const SizedBox(width: 4),
-                  Obx(() => Text(
-                        '${controller.bookController.userCoins.value}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      )),
-                ],
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.list, color: Colors.white),
-            onPressed: controller.toggleChapterList,
-          ),
-          IconButton(
-            icon: Obx(() => Icon(
-                  controller.isScrollMode.value ? Icons.swap_horiz : Icons.swap_vert,
-                  color: Colors.white,
                 )),
-            onPressed: controller.toggleReadingMode,
+            backgroundColor: Colors.black,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: controller.goBack,
+            ),
+            actions: [
+              // Coins display
+              Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[600],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.monetization_on,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Obx(() => Text(
+                            '${controller.bookController.userCoins.value}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          )),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.list, color: Colors.white),
+                onPressed: controller.toggleChapterList,
+              ),
+              IconButton(
+                icon: Obx(() => Icon(
+                      controller.isScrollMode.value ? Icons.swap_horiz : Icons.swap_vert,
+                      color: Colors.white,
+                    )),
+                onPressed: controller.toggleReadingMode,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Obx(() {
-        if (controller.currentBook.value == null) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+          body: Obx(() {
+            if (controller.currentBook.value == null) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
 
-        if (controller.isScrollMode.value) {
-          return _buildScrollMode();
-        } else {
-          return _buildSwipeMode();
-        }
-      }),
-      drawer: Obx(() => controller.currentBook.value != null
-          ? ChapterListDrawer(
-              book: controller.currentBook.value!,
-              currentChapterIndex: controller.currentChapterIndex.value,
-              onChapterSelected: (index) {
-                controller.setCurrentChapter(index);
-                controller.toggleChapterList();
-              },
-              onUnlockChapter: controller.unlockChapterWithAnimation,
-            )
-          : const SizedBox.shrink()),
+            if (controller.isScrollMode.value) {
+              return _buildScrollMode();
+            } else {
+              return _buildSwipeMode();
+            }
+          }),
+          drawer: Obx(() => controller.currentBook.value != null
+              ? ChapterListDrawer(
+                  book: controller.currentBook.value!,
+                  currentChapterIndex: controller.currentChapterIndex.value,
+                  onChapterSelected: (index) {
+                    controller.setCurrentChapter(index);
+                    controller.toggleChapterList();
+                  },
+                  onUnlockChapter: controller.unlockChapterSilently,
+                )
+              : const SizedBox.shrink()),
+        ),
+        Obx(() => controller.showCoinAnimation.value
+            ? CoinAnimationOverlay(
+                onComplete: controller.onCoinAnimationComplete,
+                coinCount: 5,
+                startPosition: _getCoinBalancePosition(context),
+                endPosition: Offset(MediaQuery.of(context).size.width * 0.5, MediaQuery.of(context).size.height * 0.6),
+              )
+            : const SizedBox.shrink()),
+      ],
     );
+  }
+
+  Offset? _getCoinBalancePosition(BuildContext context) {
+    // Calculate position based on AppBar coins display
+    final appBarHeight = AppBar().preferredSize.height;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final coinsDisplayY = statusBarHeight + appBarHeight / 2;
+    final coinsDisplayX = MediaQuery.of(context).size.width - 80; // Approximate position
+
+    return Offset(coinsDisplayX, coinsDisplayY);
   }
 
   Widget _buildScrollMode() {
@@ -271,10 +294,11 @@ class ReadingPage extends GetView<ReadingController> {
               }
             }
 
-            return SimpleBookPageView(
+            return BookPageView(
               pages: chapterPages,
               controller: controller.pageController,
               onPageChanged: controller.onPageChanged,
+              currentPage: controller.currentPage.value,
             );
           }),
         ),
@@ -408,7 +432,7 @@ class ReadingPage extends GetView<ReadingController> {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () => controller.unlockChapterWithAnimation(chapter.id),
+            onPressed: () => controller.startCoinAnimation(chapter.id),
             icon: const Icon(Icons.lock_open),
             label: Text('Unlock for ${chapter.unlockCost} coins'),
             style: ElevatedButton.styleFrom(

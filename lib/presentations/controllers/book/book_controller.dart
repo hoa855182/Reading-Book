@@ -8,6 +8,10 @@ class BookController extends GetxController {
   final RxString searchQuery = ''.obs;
   final RxInt userCoins = 100.obs; // Starting coins
 
+  // Coin animation state
+  final RxBool showAddCoinsAnimation = false.obs;
+  final RxInt pendingCoins = 0.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -161,6 +165,17 @@ In the end, it would all come down to a single moment of decision, a choice that
 
   void addCoins(int amount) {
     userCoins.value += amount;
+  }
+
+  void startAddCoinsAnimation(int amount) {
+    pendingCoins.value = amount;
+    showAddCoinsAnimation.value = true;
+  }
+
+  void onAddCoinsAnimationComplete() {
+    userCoins.value += pendingCoins.value;
+    showAddCoinsAnimation.value = false;
+    pendingCoins.value = 0;
   }
 
   List<Book> get filteredBooks {

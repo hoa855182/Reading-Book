@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:reading_book_app/presentations/pages/book/widgets/book_card_shimmer_list.dart';
 import '../../controllers/book/book_controller.dart';
 import 'widgets/book_card.dart';
 import '../../routes/app_routes.dart';
+import 'widgets/add_coins_animation.dart';
 
 class BookListPage extends GetView<BookController> {
-  const BookListPage({super.key});
+  BookListPage({super.key});
+
+  final GlobalKey _fabKey = GlobalKey();
+  final GlobalKey _coinBalanceKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +31,7 @@ class BookListPage extends GetView<BookController> {
           Align(
             alignment: Alignment.centerRight,
             child: Container(
+              key: _coinBalanceKey,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.amber[600],
@@ -53,36 +60,19 @@ class BookListPage extends GetView<BookController> {
           ),
           IconButton(
             icon: const Icon(Icons.search, color: Colors.white),
-            onPressed: () {
-              _showSearchDialog(context);
-            },
+            onPressed: () => _showSearchDialog(context),
           ),
           IconButton(
-            icon: const Icon(Icons.favorite, color: Colors.white),
-            onPressed: () {},
+            icon: const Icon(Icons.favorite_border, color: Colors.white),
+            onPressed: () {
+              // TODO: Implement favorites
+            },
           ),
         ],
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Loading books...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          );
+          return const BookCardShimmerList(itemCount: 6);
         }
 
         if (controller.errorMessage.value.isNotEmpty) {
@@ -93,14 +83,14 @@ class BookListPage extends GetView<BookController> {
                 Icon(
                   Icons.error_outline,
                   size: 64,
-                  color: Colors.red[300],
+                  color: Colors.grey[400],
                 ),
                 const SizedBox(height: 16),
                 Text(
                   controller.errorMessage.value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey,
+                    color: Colors.grey[600],
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -162,20 +152,95 @@ class BookListPage extends GetView<BookController> {
         );
       }),
       floatingActionButton: FloatingActionButton(
+        key: _fabKey,
         onPressed: () {
-          controller.addCoins(50);
-          Get.snackbar(
-            'Coins Added!',
-            'You received 50 coins!',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.green,
-            colorText: Colors.white,
-          );
+          controller.startAddCoinsAnimation(50);
+          _showAnimationOverlay();
         },
         backgroundColor: Colors.amber[600],
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
+  }
+
+  void _showAnimationOverlay() {
+    print('BookListPage: _showAnimationOverlay called');
+
+    // Remove existing overlay if any
+    _overlayEntry?.remove();
+
+    // Try different ways to get overlay
+    OverlayState? overlay;
+    try {
+      overlay = Overlay.of(Get.context!);
+      
+    } catch (e) {
+     
+      try {
+        overlay = Navigator.of(Get.context!).overlay;
+      
+      } catch (e2) {
+       
+        return;
+      }
+    }
+
+    final startPos = _getFloatingActionButtonPosition(Get.context!);
+    final endPos = _getCoinBalancePosition(Get.context!);
+
+ 
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => AddCoinsAnimationOverlay(
+        onComplete: () {
+          controller.onAddCoinsAnimationComplete();
+          _overlayEntry?.remove();
+          _overlayEntry = null;
+        },
+        coinCount: 5,
+        coinAmount: controller.pendingCoins.value,
+        startPosition: startPos,
+        endPosition: endPos,
+      ),
+    );
+
+    overlay?.insert(_overlayEntry!);
+  }
+
+  Offset? _getFloatingActionButtonPosition(BuildContext context) {
+    try {
+      final RenderBox? renderBox = _fabKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        final position = renderBox.localToGlobal(Offset.zero);
+        return Offset(position.dx + renderBox.size.width / 2, position.dy + renderBox.size.height / 2);
+      }
+    } catch (e) {
+    }
+
+    // Fallback to calculated position
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final fabX = screenWidth - 80;
+    final fabY = screenHeight - 120;
+    return Offset(fabX, fabY);
+  }
+
+  Offset? _getCoinBalancePosition(BuildContext context) {
+    try {
+      final RenderBox? renderBox = _coinBalanceKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        final position = renderBox.localToGlobal(Offset.zero);
+        return Offset(position.dx + renderBox.size.width / 2, position.dy + renderBox.size.height / 2);
+      }
+    } catch (e) {
+    }
+
+    // Fallback to calculated position
+    final appBarHeight = AppBar().preferredSize.height;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final coinsDisplayY = statusBarHeight + appBarHeight / 2;
+    final coinsDisplayX = MediaQuery.of(context).size.width - 80;
+    return Offset(coinsDisplayX, coinsDisplayY);
   }
 
   void _navigateToReading(Book book) {

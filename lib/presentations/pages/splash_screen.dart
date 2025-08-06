@@ -100,7 +100,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             FadeTransition(
               opacity: _fadeAnimation,
               child: const Text(
-                'Reading Book App',
+                'StoryBook',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,

@@ -8,8 +8,13 @@ class ReadingController extends GetxController {
 
   // Reading state
   final RxInt currentChapterIndex = 0.obs;
+  final RxInt currentPage = 0.obs;
   final RxBool isScrollMode = false.obs;
   final RxBool showChapterList = false.obs;
+
+  // Coin animation state
+  final RxBool showCoinAnimation = false.obs;
+  final RxString unlockingChapterId = ''.obs;
 
   // Current book and chapter - make them observable
   final Rx<Book?> currentBook = Rx<Book?>(null);
@@ -68,8 +73,19 @@ class ReadingController extends GetxController {
 
       // Update page controller if in swipe mode
       if (!isScrollMode.value) {
+        // Calculate the page index for this chapter
+        int pageIndex = 0;
+        for (int i = 0; i < index; i++) {
+          final chapter = _book!.chapters[i];
+          if (chapter.isUnlocked) {
+            pageIndex += getPageContent(chapter.content).length;
+          } else {
+            pageIndex += 1;
+          }
+        }
+        currentPage.value = pageIndex;
         pageController.animateToPage(
-          index,
+          pageIndex,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
@@ -145,6 +161,34 @@ class ReadingController extends GetxController {
     }
   }
 
+  void unlockChapterSilently(String chapterId) {
+    unlockChapter(chapterId);
+  }
+
+  // Coin animation methods
+  void startCoinAnimation(String chapterId) {
+    if (canUnlockChapter(chapterId)) {
+      showCoinAnimation.value = true;
+      unlockingChapterId.value = chapterId;
+    } else {
+      Get.snackbar(
+        'Not Enough Coins!',
+        'You need more coins to unlock this chapter.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void onCoinAnimationComplete() {
+    if (unlockingChapterId.value.isNotEmpty) {
+      unlockChapterSilently(unlockingChapterId.value);
+      showCoinAnimation.value = false;
+      unlockingChapterId.value = '';
+    }
+  }
+
   List<String> getPageContent(String content) {
     // Split content into pages for swipe mode
     const wordsPerPage = 150;
@@ -161,10 +205,31 @@ class ReadingController extends GetxController {
   }
 
   void onPageChanged(int page) {
-    currentChapterIndex.value = page;
-    if (_book != null && page < _book!.chapters.length) {
-      _chapter = _book!.chapters[page];
-      currentChapter.value = _chapter;
+    currentPage.value = page;
+    // Calculate which chapter this page belongs to
+    if (_book != null) {
+      int pageCount = 0;
+      for (int i = 0; i < _book!.chapters.length; i++) {
+        final chapter = _book!.chapters[i];
+        if (chapter.isUnlocked) {
+          final chapterPages = getPageContent(chapter.content).length;
+          if (page >= pageCount && page < pageCount + chapterPages) {
+            currentChapterIndex.value = i;
+            _chapter = chapter;
+            currentChapter.value = _chapter;
+            break;
+          }
+          pageCount += chapterPages;
+        } else {
+          if (page == pageCount) {
+            currentChapterIndex.value = i;
+            _chapter = chapter;
+            currentChapter.value = _chapter;
+            break;
+          }
+          pageCount += 1;
+        }
+      }
     }
   }
 

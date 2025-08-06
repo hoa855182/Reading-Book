@@ -1,5 +1,3 @@
-
-
 import 'package:get/get.dart';
 import 'package:reading_book_app/presentations/controllers/book/book_binding.dart';
 import 'package:reading_book_app/presentations/controllers/reading/reading_binding.dart';
@@ -12,7 +10,7 @@ class AppPages {
   static final pages = [
     GetPage(
       name: Routes.bookList,
-      page: () => const BookListPage(),
+      page: () => BookListPage(),
       binding: BookBinding(),
     ),
     GetPage(

@@ -36,26 +36,33 @@ class _CoinAnimationState extends State<CoinAnimation> {
         return Positioned(
           left: currentX - 12, // Center the coin
           top: arcY - 12,
-          child: Transform.scale(
-            scale: 1.0 - progress * 0.3, // Slightly shrink as it moves
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Colors.amber[600],
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.amber.withOpacity(0.3),
-                    blurRadius: 8,
-                    spreadRadius: 2,
+          child: Opacity(
+            opacity: (1.0 - (0.3 * progress)).clamp(0.0, 1.0), // Fade out slightly as it approaches
+            child: Transform.scale(
+              scale: (1.0 - progress * 0.4).clamp(0.0, 2.0), // Scale from 1.0 to 0.6
+              child: Transform.rotate(
+                angle: progress * 4 * 3.14159, // Rotate 2 full rotations
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.amber[600],
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2), // Add white border for visibility
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withOpacity((0.3 * (1 - progress)).clamp(0.0, 1.0)),
+                        blurRadius: 8 * (1 - progress),
+                        spreadRadius: 2 * (1 - progress),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.monetization_on,
-                color: Colors.white,
-                size: 16,
+                  child: const Icon(
+                    Icons.monetization_on,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
               ),
             ),
           ),
@@ -68,11 +75,17 @@ class _CoinAnimationState extends State<CoinAnimation> {
 class CoinAnimationOverlay extends StatefulWidget {
   final VoidCallback onComplete;
   final int coinCount;
+  final Offset? startPosition;
+  final Offset? endPosition;
+  final int? coinAmount; // For add coins animation
 
   const CoinAnimationOverlay({
     super.key,
     required this.onComplete,
     this.coinCount = 5,
+    this.startPosition,
+    this.endPosition,
+    this.coinAmount,
   });
 
   @override
@@ -136,20 +149,68 @@ class _CoinAnimationOverlayState extends State<CoinAnimationOverlay> with Ticker
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: List.generate(widget.coinCount, (index) {
-        final screenSize = MediaQuery.of(context).size;
-        final startX = screenSize.width * 0.8; // Start from right side
-        final startY = 100.0; // Start from top
-        final endX = screenSize.width * 0.5; // End in center
-        final endY = screenSize.height * 0.5; // End in center
+    final screenSize = MediaQuery.of(context).size;
 
-        return CoinAnimation(
-          animation: coinAnimations[index],
-          startPosition: Offset(startX, startY),
-          endPosition: Offset(endX, endY),
-        );
-      }),
+    // Default positions if not provided
+    final startX = widget.startPosition?.dx ?? screenSize.width * 0.8;
+    final startY = widget.startPosition?.dy ?? 100.0;
+    final endX = widget.endPosition?.dx ?? screenSize.width * 0.5;
+    final endY = widget.endPosition?.dy ?? screenSize.height * 0.5;
+
+    return Stack(
+      children: [
+        ...List.generate(widget.coinCount, (index) {
+          return CoinAnimation(
+            animation: coinAnimations[index],
+            startPosition: Offset(startX, startY),
+            endPosition: Offset(endX, endY),
+          );
+        }),
+        // Show coin amount text when animation is almost complete
+        if (widget.coinAmount != null)
+          AnimatedBuilder(
+            animation: coinControllers.last,
+            builder: (context, child) {
+              final progress = coinControllers.last.value;
+              if (progress > 0.7) {
+                final opacity = ((progress - 0.7) / 0.3).clamp(0.0, 1.0); // Fade in from 0.7 to 1.0
+                return Positioned(
+                  left: endX - 30,
+                  top: endY - 40,
+                  child: Opacity(
+                    opacity: opacity,
+                    child: Transform.scale(
+                      scale: (0.8 + (0.2 * opacity)).clamp(0.0, 2.0), // Scale up as it appears
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.3),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          '+${widget.coinAmount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+      ],
     );
   }
 }
